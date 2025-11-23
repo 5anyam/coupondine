@@ -1,7 +1,7 @@
 const baseUrl = "https://static.saynopest.com";
 import { ExtendedPost, Category, Author } from "@/lib/types";
 
-const revalidateTime: number = 43200; // half-day cache
+const revalidateTime: number = 300; // 5 minutes cache
 
 export async function getAllPosts(
   pageNumber: number = 1,
@@ -11,9 +11,12 @@ export async function getAllPosts(
 ): Promise<{ posts: ExtendedPost[]; totalPages: number }> {
   const params = new URLSearchParams({
     per_page: perPage.toString(),
-    page: pageNumber.toString(), // Only fetch requested page
+    page: pageNumber.toString(),
     search: searchTerm,
     _embed: "true",
+    status: "publish", // ✅ FIX 1: Only published posts
+    orderby: "date", // ✅ FIX 2: Order by date
+    order: "desc", // ✅ FIX 3: Latest first (descending)
   });
   
   if (categories !== 0) {
@@ -23,6 +26,7 @@ export async function getAllPosts(
   const response = await fetch(`${baseUrl}/wp-json/wp/v2/posts?${params.toString()}`, {
     next: {
       revalidate: revalidateTime,
+      tags: ['blog-posts'], // Optional: for on-demand revalidation
     },
   });
 
@@ -38,11 +42,14 @@ export async function getAllPosts(
 }
 
 export async function getPostBySlug(slug: string): Promise<ExtendedPost | null> {
-  const response = await fetch(`${baseUrl}/wp-json/wp/v2/posts?_embed=true&slug=${slug}`, {
-    next: {
-      revalidate: revalidateTime,
-    },
-  });
+  const response = await fetch(
+    `${baseUrl}/wp-json/wp/v2/posts?_embed=true&slug=${slug}&status=publish`, // ✅ Only published
+    {
+      next: {
+        revalidate: revalidateTime,
+      },
+    }
+  );
   const post = await response.json();
   return post[0];
 }
@@ -71,8 +78,18 @@ export async function getCategories(): Promise<Category[]> {
   return data;
 }
 
-export async function getPostsByCategory(categoryId: number, limit: number = 10): Promise<ExtendedPost[]> {
-  const res = await fetch(`${baseUrl}/wp-json/wp/v2/posts?categories=${categoryId}&per_page=${limit}&_embed`);
+export async function getPostsByCategory(
+  categoryId: number, 
+  limit: number = 10
+): Promise<ExtendedPost[]> {
+  const res = await fetch(
+    `${baseUrl}/wp-json/wp/v2/posts?categories=${categoryId}&per_page=${limit}&_embed&status=publish&orderby=date&order=desc`, // ✅ Fixed
+    {
+      next: {
+        revalidate: revalidateTime,
+      },
+    }
+  );
   if (!res.ok) {
     console.error("Failed to fetch posts by category:", await res.text());
     return [];
@@ -89,7 +106,7 @@ export async function getAllCategories() {
   return res.json();
 }
 
-// If you need a function to get ALL posts (for sitemap etc.), create a separate function:
+// For sitemap - fetch ALL published posts
 export async function getAllPostsForSitemap(): Promise<ExtendedPost[]> {
   let currentPage = 1;
   let allPosts: ExtendedPost[] = [];
@@ -100,6 +117,9 @@ export async function getAllPostsForSitemap(): Promise<ExtendedPost[]> {
       per_page: "100",
       page: currentPage.toString(),
       _embed: "true",
+      status: "publish", // ✅ Only published
+      orderby: "date", // ✅ Latest first
+      order: "desc",
     });
 
     const response = await fetch(`${baseUrl}/wp-json/wp/v2/posts?${params.toString()}`, {
