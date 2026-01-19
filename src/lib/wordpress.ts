@@ -2,7 +2,7 @@ import { Coupon, Brand, Category } from '@/types';
 
 const WP_API_URL = 'https://cms.coupondine.com/wp-json/wp/v2';
 
-export async function getCoupons(limit = 50): Promise<Coupon[]> {
+export async function getCoupons(limit = 100): Promise<Coupon[]> {
   try {
     const url = `${WP_API_URL}/coupon?_embed&per_page=${limit}`;
     console.log('Fetching coupons from:', url);
