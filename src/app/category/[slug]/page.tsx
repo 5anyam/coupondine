@@ -1,208 +1,114 @@
-import type { Metadata } from 'next';
-import { getAllPosts, getCategoryBySlug } from '@/lib/queries';
-import Image from 'next/image';
+import { getBrandsByCategory, getCategories, getCoupons } from '@/lib/wordpress';
+import { Brand, Coupon } from '@/types';
+import BrandCard from '@/components/BrandsCard';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}): Promise<Metadata> {
-  const { slug } = await params;
-  
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.saynopest.com';
-  const canonicalUrl = `${baseUrl}/category/${slug}`;
-  const featuredImage = `${baseUrl}/types/ants-hero-image.jpg`;
-  
-  // Get category data for dynamic metadata
-  const category = await getCategoryBySlug(slug);
-  
-  const title = category ? `${category.name} | Say No Pest` : "Pest Control Category | Say No Pest";
-  const description = category 
-    ? `Browse our comprehensive ${category.name.toLowerCase()} guides and expert advice. Professional pest control solutions and tips.`
-    : "Browse our comprehensive pest control guides and expert advice. Professional pest control solutions and tips.";
-  
-  return {
-    title: title,
-    description: description,
-    keywords: `${category?.name || 'pest control'}, pest control, extermination, pest removal, pest management, home pest control`,
-    authors: [{ name: 'Say No Pest' }],
-    creator: 'Say No Pest',
-    publisher: 'Say No Pest',
-    
-    // Open Graph
-    openGraph: {
-      title: title,
-      description: description,
-      url: canonicalUrl,
-      siteName: 'Say No Pest',
-      images: [
-        {
-          url: featuredImage,
-          width: 1200,
-          height: 630,
-          alt: `${category?.name || 'Pest Control'} guides and solutions`,
-        },
-      ],
-      locale: 'en_US',
-      type: 'website',
-    },
-
-    // Twitter Card
-    twitter: {
-      card: 'summary_large_image',
-      title: title,
-      description: description,
-      images: [featuredImage],
-      creator: '@saynopest',
-    },
-
-    // Canonical URL
-    alternates: {
-      canonical: canonicalUrl,
-    },
-
-    // Additional SEO
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        'max-video-preview': -1,
-        'max-image-preview': 'large',
-        'max-snippet': -1,
-      },
-    },
-    
-    // Category and topic metadata
-    category: 'Pest Control',
-    
-    // Additional structured metadata
-    other: {
-      'article:section': category?.name || 'Pest Control',
-      'article:tag': `${category?.name || 'pest control'}, pest management, extermination`,
-      'og:image:alt': `${category?.name || 'Pest Control'} guides and solutions`,
-      'twitter:image:alt': `${category?.name || 'Pest Control'} guides and solutions`,
-      // Schema.org hints
-      'schema:breadcrumb': `Home > Categories > ${category?.name || 'Pest Control'}`,
-      'geo:region': 'US',
-      'geo:placename': 'United States',
-    },
+interface CategoryPageProps {
+  params: {
+    slug: string;
   };
 }
 
-export default async function CategoryPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ slug: string }>;
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  const { slug } = await params;
-  const query = await searchParams;
+export async function generateMetadata({ params }: CategoryPageProps) {
+  const categories = await getCategories();
+  const category = categories.find(cat => cat.slug === params.slug);
+  
+  return {
+    title: `${category?.name || params.slug} Brands & Coupons - CouponDine`,
+    description: `Explore top brands and deals in ${category?.name || params.slug}`,
+  };
+}
 
-  const currentPage = query.page ? parseInt(query.page as string, 10) : 1;
-  const searchTerm = typeof query.search === 'string' ? query.search : '';
-
-  const category = await getCategoryBySlug(slug);
-  if (!category) notFound();
-
-  const categoryId = category.id;
-  const { posts, totalPages } = await getAllPosts(currentPage, 20, searchTerm, categoryId);
-
-  if (!posts || posts.length === 0) {
-    return (
-      <div className="mt-20 text-center">
-        <h1 className="text-3xl font-bold mb-4">{category.name}</h1>
-        <p>No posts found in this category.</p>
-      </div>
-    );
-  }
+export default async function CategoryPage({ params }: CategoryPageProps) {
+  // Get brands in this category
+  const brands: Brand[] = await getBrandsByCategory(params.slug);
+  
+  // Get all coupons to count per brand
+  const allCoupons: Coupon[] = await getCoupons(100);
+  
+  // Count coupons per brand
+  const brandCouponCount: Record<number, number> = {};
+  allCoupons.forEach((coupon) => {
+    const brandTerms = coupon._embedded?.['wp:term']?.[0] || [];
+    brandTerms.forEach((brand: Brand) => {
+      brandCouponCount[brand.id] = (brandCouponCount[brand.id] || 0) + 1;
+    });
+  });
+  
+  // Get category info
+  const categories = await getCategories();
+  const category = categories.find(cat => cat.slug === params.slug);
+  const categoryName = category?.name || params.slug;
+  const categoryDesc = category?.description?.replace(/<[^>]*>/g, '') || '';
 
   return (
-    <div className="mt-20 px-4 max-w-7xl mx-auto">
-      <h1 className="text-4xl font-bold text-center text-primary mb-12">
-        {category.name}
-      </h1>
+    <div className="min-h-screen bg-gray-50">
+      {/* Hero Section */}
+      <section className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-16">
+        <div className="container mx-auto px-4">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-blue-100 mb-4 justify-center">
+            <Link href="/categories" className="hover:text-white transition">
+              Categories
+            </Link>
+            <span>/</span>
+            <span className="text-white font-semibold">{categoryName}</span>
+          </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {posts.map((post) => {
-          const imageUrl = post._embedded?.['wp:featuredmedia']?.[0]?.source_url;
-          const categoryName = post._embedded?.['wp:term']?.[0]?.[0]?.name;
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-center">
+            {categoryName} Brands
+          </h1>
+          
+          {categoryDesc && (
+            <p className="text-lg text-blue-100 text-center max-w-2xl mx-auto mb-4">
+              {categoryDesc}
+            </p>
+          )}
+          
+          <p className="text-xl text-blue-100 text-center">
+            {brands.length} {brands.length === 1 ? 'brand' : 'brands'} available
+          </p>
+        </div>
+      </section>
 
-          return (
-            <div
-              key={post.id}
-              className="border rounded-xl overflow-hidden shadow hover:shadow-lg transition bg-white flex flex-col"
-            >
-              <Link href={`/blog/${post.slug}`} className="flex flex-col h-full">
-                {imageUrl && (
-                  <div className="w-full h-72 bg-white flex items-center justify-center">
-                    <Image
-                      src={imageUrl}
-                      alt={post.title.rendered}
-                      width={500}
-                      height={300}
-                      className="max-h-full w-full object-cover"
-                    />
-                  </div>
-                )}
-
-                <div className="p-4 flex flex-col flex-1">
-                  {categoryName && (
-                    <span className="inline-block mb-2 text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full max-w-max">
-                      {categoryName}
-                    </span>
-                  )}
-                  <h3
-                    className="text-lg font-semibold mb-2 text-center"
-                    dangerouslySetInnerHTML={{ __html: post.title.rendered }}
-                  />
-                  <p className="text-sm text-gray-500 mb-4 text-center">
-                    {new Date(post.date).toLocaleDateString('en-US')}
-                  </p>
-                  <div className="mt-auto text-center">
-                    <Link
-                      href={`/blog/${post.slug}`}
-                      className="inline-block bg-primary text-white px-4 py-2 rounded hover:bg-primary/90 transition"
-                    >
-                      Read Now
-                    </Link>
-                  </div>
-                </div>
+      <div className="container mx-auto px-4 py-12">
+        {brands.length > 0 ? (
+          <>
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-bold text-gray-800">
+                Popular Brands in {categoryName}
+              </h2>
+              <Link 
+                href="/categories" 
+                className="text-blue-600 font-semibold hover:underline"
+              >
+                ← All Categories
               </Link>
             </div>
-          );
-        })}
-      </div>
-
-      {/* Pagination */}
-      <div className="text-center mt-10">
-        {totalPages > 1 && (
-          <div className="flex justify-center items-center gap-8">
-            {currentPage > 1 && (
-              <Link
-                href={`/category/${slug}?page=${currentPage - 1}`}
-                className="text-blue-600 hover:underline"
-              >
-                ← Previous
-              </Link>
-            )}
-
-            <span>
-              Page {currentPage} of {totalPages}
-            </span>
-
-            {currentPage < totalPages && (
-              <Link
-                href={`/category/${slug}?page=${currentPage + 1}`}
-                className="text-blue-600 hover:underline"
-              >
-                Next →
-              </Link>
-            )}
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+              {brands.map((brand) => (
+                <BrandCard 
+                  key={brand.id} 
+                  brand={brand}
+                  couponCount={brandCouponCount[brand.id] || 0}
+                />
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-16">
+            <svg className="w-24 h-24 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+            </svg>
+            <h3 className="text-2xl font-bold text-gray-600 mb-2">No brands found</h3>
+            <p className="text-gray-500 mb-6">This category does not have any brands yet.</p>
+            <Link 
+              href="/categories" 
+              className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+            >
+              ← Browse All Categories
+            </Link>
           </div>
         )}
       </div>

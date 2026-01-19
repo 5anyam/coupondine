@@ -1,76 +1,68 @@
-"use client"
-import { GrInstagram } from "react-icons/gr";
-import { TbBrandLinkedin } from "react-icons/tb";
-import { RiFacebookBoxLine } from "react-icons/ri";
-import Link from "next/link";
-import Image from "next/image";
+import Link from 'next/link';
 
-export function Footer() {
-    return (
-      <div className="bg-primary relative bottom-0 rounded-xl text-white mt-10">
-      <div className="px-8 py-6">
-  
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              <div>
-                  <p className="font-semibold text-xl text-white">Quick Link</p>
-  
-                  <div className="flex flex-col items-start mt-5 space-y-2">
-                      <a href="https://www.saynopest.com/" className="text-white transition-colors duration-300 dark:hover:text-blue-400 hover:font-bold">Home</a>
-                      <a href="https://www.saynopest.com/contact" className="text-white transition-colors duration-300 dark:hover:text-blue-400 hover:font-bold">Contact Us</a>
-                      <Link href="https://www.saynopest.com/about"><h6 className="text-white transition-colors duration-300 dark:hover:text-blue-400 hover:font-bold">About Us</h6></Link>
-                      <a href="https://www.saynopest.com/blog" className="text-white transition-colors duration-300 dark:hover:text-blue-400 hover:font-bold">Blogs</a>
-                  </div>
-              </div>
-  
-              <div>
-                  <p className="font-semibold text-xl text-white">Services</p>
-  
-                  <div className="flex flex-col items-start mt-5 space-y-2">
-                      <a href="https://www.saynopest.com/category/termites" className="text-white transition-colors duration-300 dark:hover:text-blue-400 hover:font-bold">Termites</a>
-                      <a href="https://www.saynopest.com/category/mosquitoes" className="text-white transition-colors duration-300 dark:hover:text-blue-400 hover:font-bold">Mosquitoes</a>
-                      <a href="https://www.saynopest.com/category/ants" className="text-white transition-colors duration-300 dark:hover:text-blue-400 hover:font-bold">Ants</a>
-                      <a href="https://www.saynopest.com/category/spiders" className="text-white transition-colors duration-300 dark:hover:text-blue-400 hover:font-bold">Spiders</a>
-                  </div>
-              </div>
-  
-              <div>
-                  <p className="font-semibold text-xl text-white dark:text-white">Useful Links</p>
-  
-                  <div className="flex flex-col items-start mt-5 space-y-2">
-                  <Link href="https://www.saynopest.com/privacy-policy"><h6 className="text-white transition-colors duration-300 dark:hover:text-blue-400 hover:font-bold">Privacy Policy</h6></Link>
-                      <a href="https://www.saynopest.com/terms-and-conditions" className="text-white transition-colors duration-300 dark:hover:text-blue-400 hover:font-bold">Terms and conditions</a>
-                      <a href="https://www.saynopest.com/disclaimer" className="text-white transition-colors duration-300 dark:hover:text-blue-400 hover:font-bold">Disclaimer</a>
-                      <a href="https://saynopest.com/sitemap.xml" className="text-white transition-colors duration-300 dark:hover:text-blue-400 hover:font-bold">Sitemap</a>
-                  </div>
-              </div>
-  
-              <div className="mb-5">
-                  <p className="font-semibold text-xl text-white dark:text-white">Contact Us</p>
-  
-                  <div className="flex flex-col items-start mt-5 space-y-2">
-                  <a href="#" className="text-white transition-colors duration-300 dark:hover:text-blue-400 hover:font-bold">Digimach 10 LLC</a>
-                      <a href="#" className="text-white transition-colors duration-300 dark:hover:text-blue-400 hover:font-bold">16192 Coastal Highway, Lewes, Delaware 19958, Country of Sussex, USA.</a>
-                      <a href="#" className="text-white transition-colors duration-300 dark:hover:text-blue-400 hover:font-bold">+121-7773-5600</a>
-                      <a href="#" className="text-white transition-colors duration-300 dark:hover:text-blue-400 hover:font-bold">support@saynopest.com</a>
-                     <div className="flex flex-row items-center">
-                     <Link href="https://www.facebook.com/people/Saynopest/61575434679519/"><RiFacebookBoxLine className="text-white text-3xl" /></Link>
-                    <Link href="https://www.instagram.com/saynopest/"><GrInstagram className="text-white mx-2 text-2xl"/></Link>
-                    <Link href="https://www.linkedin.com/company/saynopest/"><TbBrandLinkedin className="text-white text-3xl"/></Link>
-                        </div> 
-                  </div>
-              </div>
-          </div>
-          
-          <hr className="border-gray-200 dark:border-gray-700"/>
-          
-          <div className="flex flex-col items-center py-2 w-full rounded-xl mt-5 bg-white justify-between px-2 sm:flex-row">
-              <a href="#">
-                  <Image className="ml-2 w-auto h-12" src="saynopest-logo.png" alt="logo"/>
+export default function Footer() {
+  return (
+    <footer className="bg-gray-900 text-gray-300 mt-20">
+      <div className="container mx-auto px-4 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          {/* About */}
+          <div>
+            <h3 className="text-white font-bold text-lg mb-4">CouponDine</h3>
+            <p className="text-sm mb-4">
+              Your trusted source for verified coupon codes and exclusive deals. Save money on your favorite brands.
+            </p>
+            <div className="flex space-x-4">
+              <a href="#" className="hover:text-blue-400 transition">
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
+                </svg>
               </a>
-  
-              <p className="mt-4 text-center text-gray-800 text-xs lg:text-left lg:text-sm sm:mt-0">©Copyright Saynopest 2025. <br className="block lg:hidden"/> All Rights Reserved.</p>
+              <a href="#" className="hover:text-blue-400 transition">
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                </svg>
+              </a>
+            </div>
           </div>
+
+          {/* Popular Brands */}
+          <div>
+            <h3 className="text-white font-bold text-lg mb-4">Popular Brands</h3>
+            <ul className="space-y-2 text-sm">
+              <li><Link href="/brand/jasper-ai" className="hover:text-blue-400 transition">Jasper AI</Link></li>
+              <li><Link href="/brand/hostinger" className="hover:text-blue-400 transition">Hostinger</Link></li>
+              <li><Link href="/brand/semrush" className="hover:text-blue-400 transition">Semrush</Link></li>
+              <li><Link href="/brand/shopify" className="hover:text-blue-400 transition">Shopify</Link></li>
+            </ul>
+          </div>
+
+          {/* Categories */}
+          <div>
+            <h3 className="text-white font-bold text-lg mb-4">Categories</h3>
+            <ul className="space-y-2 text-sm">
+              <li><Link href="/category/ai-tools" className="hover:text-blue-400 transition">AI Tools</Link></li>
+              <li><Link href="/category/hosting" className="hover:text-blue-400 transition">Web Hosting</Link></li>
+              <li><Link href="/category/saas" className="hover:text-blue-400 transition">SaaS</Link></li>
+              <li><Link href="/category/marketing" className="hover:text-blue-400 transition">Marketing</Link></li>
+            </ul>
+          </div>
+
+          {/* Legal */}
+          <div>
+            <h3 className="text-white font-bold text-lg mb-4">Legal</h3>
+            <ul className="space-y-2 text-sm">
+              <li><Link href="/about" className="hover:text-blue-400 transition">About Us</Link></li>
+              <li><Link href="/contact" className="hover:text-blue-400 transition">Contact</Link></li>
+              <li><Link href="/privacy" className="hover:text-blue-400 transition">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="hover:text-blue-400 transition">Terms of Service</Link></li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm">
+          <p>&copy; 2026 CouponDine. All rights reserved. Made with ❤️ by Sanyam</p>
+        </div>
       </div>
-  </div>
-    )
-  }
+    </footer>
+  );
+}

@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
-    domains: ['static.saynopest.com', 'remotePatterns'],
+    domains: ['cms.coupondine.com', 'remotePatterns'],
   },
   async redirects() {
     return [
