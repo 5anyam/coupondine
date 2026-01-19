@@ -1,117 +1,160 @@
-import { getBrandsByCategory, getCategories, getCoupons } from '@/lib/wordpress';
-import { Brand, Coupon } from '@/types';
-import BrandCard from '@/components/BrandsCard';
+import { getCategories, getCouponsByCategory, getBrandsByCategory } from '@/lib/wordpress'; // Adjust path
+import Image from 'next/image';
 import Link from 'next/link';
+import { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { Coupon, Brand, Category } from '@/types';
+import { decode } from 'html-entities';
 
-interface CategoryPageProps {
-  params: {
-    slug: string;
-  };
-}
+type CategoryPageProps = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
 
-export async function generateMetadata({ params }: CategoryPageProps) {
-  const categories = await getCategories();
-  const category = categories.find(cat => cat.slug === params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const category = await getCategories(); // Fetch to get dynamic title
+  const cat = category.find(c => c.slug === slug);
+  
+  const title = cat ? `${decode(cat.name)} Coupons & Deals | CouponDine` : 'Category Not Found';
+  const description = cat ? `Latest ${decode(cat.name)} coupons, promo codes & deals. Save with verified discounts.` : 'Explore coupons on CouponDine.';
   
   return {
-    title: `${category?.name || params.slug} Brands & Coupons - CouponDine`,
-    description: `Explore top brands and deals in ${category?.name || params.slug}`,
+    title,
+    description,
+    keywords: `${decode(cat?.name || 'coupons')}, promo codes, deals, discounts`,
+    alternates: { canonical: `/category/${slug}` },
   };
 }
 
-export default async function CategoryPage({ params }: CategoryPageProps) {
-  // Get brands in this category
-  const brands: Brand[] = await getBrandsByCategory(params.slug);
-  
-  // Get all coupons to count per brand
-  const allCoupons: Coupon[] = await getCoupons(100);
-  
-  // Count coupons per brand
-  const brandCouponCount: Record<number, number> = {};
-  allCoupons.forEach((coupon) => {
-    const brandTerms = coupon._embedded?.['wp:term']?.[0] || [];
-    brandTerms.forEach((brand: Brand) => {
-      brandCouponCount[brand.id] = (brandCouponCount[brand.id] || 0) + 1;
-    });
-  });
-  
-  // Get category info
-  const categories = await getCategories();
-  const category = categories.find(cat => cat.slug === params.slug);
-  const categoryName = category?.name || params.slug;
-  const categoryDesc = category?.description?.replace(/<[^>]*>/g, '') || '';
+export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
+  const { slug } = await params;
+  const queryParams = await searchParams;
+
+  // Fetch data
+  const [categoryRes, couponsRes, brandsRes] = await Promise.allSettled([
+    getCategories(),
+    getCouponsByCategory ? getCouponsByCategory(slug) : [], // Use your func or fallback
+    getBrandsByCategory ? getBrandsByCategory(slug) : [],
+  ]);
+
+  const categories: Category[] = categoryRes.status === 'fulfilled' ? categoryRes.value : [];
+  const coupons: Coupon[] = couponsRes.status === 'fulfilled' ? couponsRes.value : [];
+  const brands: Brand[] = brandsRes.status === 'fulfilled' ? brandsRes.value : [];
+
+  const category = categories.find(c => c.slug === slug);
+  if (!category) notFound();
+
+  // Filter by query if present
+  const q = (queryParams.q as string)?.toLowerCase() || '';
+  const filteredCoupons = q 
+    ? coupons.filter(c => 
+        decode(c.title.rendered).toLowerCase().includes(q) ||
+        decode(c.excerpt?.rendered || '').toLowerCase().includes(q)
+      )
+    : coupons;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-16">
-        <div className="container mx-auto px-4">
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-blue-100 mb-4 justify-center">
-            <Link href="/categories" className="hover:text-white transition">
-              Categories
-            </Link>
-            <span>/</span>
-            <span className="text-white font-semibold">{categoryName}</span>
-          </div>
-
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-center">
-            {categoryName} Brands
-          </h1>
-          
-          {categoryDesc && (
-            <p className="text-lg text-blue-100 text-center max-w-2xl mx-auto mb-4">
-              {categoryDesc}
-            </p>
-          )}
-          
-          <p className="text-xl text-blue-100 text-center">
-            {brands.length} {brands.length === 1 ? 'brand' : 'brands'} available
+    <div className="max-w-6xl mx-auto px-4 py-12">
+      {/* Hero Header */}
+      <div className="text-center mb-16 bg-gradient-to-r from-orange-50 to-yellow-50 p-12 rounded-3xl">
+        <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent mb-4">
+          {decode(category.name)} Coupons
+        </h1>
+        <p className="text-xl text-gray-700 max-w-2xl mx-auto">
+          Latest verified promo codes, deals & cashback for {decode(category.name)}. Save up to {category.count || '50%'} off top brands!
+        </p>
+        {q && (
+          <p className="text-sm text-orange-600 mt-4 bg-orange-100 p-2 rounded-xl inline-block">
+            Showing results for {q}
           </p>
-        </div>
-      </section>
+        )}
+      </div>
 
-      <div className="container mx-auto px-4 py-12">
-        {brands.length > 0 ? (
-          <>
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold text-gray-800">
-                Popular Brands in {categoryName}
-              </h2>
-              <Link 
-                href="/categories" 
-                className="text-blue-600 font-semibold hover:underline"
+      {/* Top Brands in Category */}
+      {brands.length > 0 && (
+        <section className="mb-16">
+          <h2 className="text-3xl font-bold mb-8 text-gray-800">Top Brands ({brands.length})</h2>
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
+            {brands.slice(0, 12).map((brand) => (
+              <Link
+                key={brand.id}
+                href={`/brand/${brand.slug}`}
+                className="group p-6 bg-white border rounded-2xl hover:shadow-xl hover:-translate-y-1 transition-all text-center"
               >
-                ← All Categories
+                <h4 className="font-semibold text-lg text-gray-800 group-hover:text-orange-600 mb-2">
+                  {brand.name}
+                </h4>
+                <span className="text-sm text-gray-500">View Deals</span>
               </Link>
-            </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-              {brands.map((brand) => (
-                <BrandCard 
-                  key={brand.id} 
-                  brand={brand}
-                  couponCount={brandCouponCount[brand.id] || 0}
-                />
-              ))}
-            </div>
-          </>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Coupons Grid */}
+      <section>
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="text-3xl font-bold text-gray-800">
+            Latest Coupons ({filteredCoupons.length})
+          </h2>
+          <Link href={`/category/${slug}?sort=newest`} className="text-orange-600 hover:underline font-semibold">
+            View All →
+          </Link>
+        </div>
+        {filteredCoupons.length > 0 ? (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredCoupons.map((coupon) => (
+              <Link
+                key={coupon.id}
+                href={`/coupon/${coupon.slug}`}
+                className="group bg-white border border-gray-200 rounded-2xl shadow-md hover:shadow-xl hover:-translate-y-1 transition-all overflow-hidden"
+              >
+                <div className="relative h-40 bg-gradient-to-br from-gray-100">
+                  {coupon._embedded?.['wp:featuredmedia']?.[0]?.source_url && (
+                    <Image
+                      src={coupon._embedded['wp:featuredmedia'][0].source_url}
+                      alt={coupon.title.rendered}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform"
+                    />
+                  )}
+                  {coupon.acf?.discount_amount && (
+                    <div className="absolute top-3 right-3 bg-gradient-to-r from-orange-500 to-yellow-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
+                      {coupon.acf.discount_amount} OFF
+                    </div>
+                  )}
+                </div>
+                <div className="p-5">
+                  <h3 className="font-bold text-lg line-clamp-2 mb-2" dangerouslySetInnerHTML={{ __html: coupon.title.rendered }} />
+                  {coupon.excerpt?.rendered && (
+                    <p className="text-sm text-gray-600 line-clamp-2 mb-3" dangerouslySetInnerHTML={{ __html: coupon.excerpt.rendered }} />
+                  )}
+                  {coupon.acf?.coupon_code && (
+                    <div className="bg-orange-50 p-3 rounded-lg mb-3">
+                      <code className="block text-orange-800 font-mono bg-white px-2 py-1 rounded text-sm">
+                        {coupon.acf.coupon_code}
+                      </code>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-500">Expires soon</span>
+                    <span className="text-orange-600 font-semibold">Get Deal →</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
         ) : (
-          <div className="text-center py-16">
-            <svg className="w-24 h-24 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
-            </svg>
-            <h3 className="text-2xl font-bold text-gray-600 mb-2">No brands found</h3>
-            <p className="text-gray-500 mb-6">This category does not have any brands yet.</p>
-            <Link 
-              href="/categories" 
-              className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
-            >
-              ← Browse All Categories
+          <div className="text-center py-20 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-3xl">
+            <h3 className="text-2xl font-bold mb-4 text-gray-700">No Coupons Yet</h3>
+            <p className="text-gray-600 mb-8">Check back soon for {decode(category.name)} deals!</p>
+            <Link href="/" className="bg-orange-500 text-white px-8 py-3 rounded-xl hover:bg-orange-600">
+              All Categories
             </Link>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
