@@ -13,17 +13,7 @@ const nextConfig: NextConfig = {
         source: '/home',
         destination: '/',
         permanent: true, // 301 redirect; use false for 302
-      },
-      {
-        source: '/hello-world',
-        destination: '/',
-        permanent: true, // 301 redirect; use false for 302
-      },
-      {
-        source: '/pest-control-elementor',
-        destination: '/',
-        permanent: true, // 301 redirect; use false for 302
-      },
+      }
       
       
     ];
