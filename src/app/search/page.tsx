@@ -1,109 +1,39 @@
-import { getAllPosts, getAllCategories } from "@/lib/queries";
-import Image from "next/image";
-import Link from "next/link";
-import { decode } from "html-entities";
-import { Metadata } from "next"; 
+import { getCoupons, getCategories, getBrands } from '@/lib/wordpress'; // Adjust path if needed
+import Image from 'next/image';
+import Link from 'next/link';
+import { decode } from 'html-entities';
+import { Metadata } from 'next';
+import { Coupon, Brand, Category } from '@/types';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.saynopest.com';
-  const canonicalUrl = `${baseUrl}/pest-library`;
-  const featuredImage = `${baseUrl}/types/ants-hero-image.jpg`; // or use your main ant image
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://coupondine.com';
+  const canonicalUrl = `${baseUrl}/search`;
   
-  const title = "Common Types of Ants in the US | Identification & Control Guide";
-  const description = "Discover the most common ant species found in American homes including Fire Ants, Carpenter Ants, Pavement Ants, and more. Learn identification tips and effective control methods.";
+  const title = 'Search Coupons & Deals | CouponDine - Promo Codes, Discounts';
+  const description = 'Search verified coupons, promo codes, deals & cashback offers on CouponDine. Find discounts for fashion, electronics, SaaS tools, travel & more.';
   
   return {
-    title: title,
-    description: description,
-    keywords: "ants, ant types, fire ants, carpenter ants, pavement ants, army ants, twig ants, argentine ants, ant identification, pest control, ant removal, ant infestation",
-    authors: [{ name: 'Say No Pest' }],
-    creator: 'Say No Pest',
-    publisher: 'Say No Pest',
-    
-    // Open Graph
+    title,
+    description,
+    keywords: 'coupon search, promo codes, deals search, discount codes, cashback, CouponDine',
     openGraph: {
-      title: title,
-      description: description,
+      title,
+      description,
       url: canonicalUrl,
-      siteName: 'Say No Pest',
-      images: [
-        {
-          url: featuredImage,
-          width: 1200,
-          height: 630,
-          alt: "Common types of ants found in US homes - identification guide",
-        },
-      ],
-      locale: 'en_US',
+      siteName: 'CouponDine',
+      images: [{ url: `${baseUrl}/coupons-hero.jpg`, width: 1200, height: 630 }],
       type: 'website',
     },
-
-    // Twitter Card
     twitter: {
       card: 'summary_large_image',
-      title: title,
-      description: description,
-      images: [featuredImage],
-      creator: '@saynopest',
+      title,
+      description,
+      images: [`${baseUrl}/coupons-hero.jpg`],
     },
-
-    // Canonical URL
-    alternates: {
-      canonical: canonicalUrl,
-    },
-
-    // Additional SEO
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        'max-video-preview': -1,
-        'max-image-preview': 'large',
-        'max-snippet': -1,
-      },
-    },
-    
-    // Category and topic metadata
-    category: 'Pest Control',
-    
-    // Additional structured metadata
-    other: {
-      'article:section': 'Ant Control',
-      'article:tag': 'fire ants, carpenter ants, pavement ants, army ants, twig ants, argentine ants, pest identification',
-      'og:image:alt': 'Guide to common ant types found in US homes',
-      'twitter:image:alt': 'Guide to common ant types found in US homes',
-      // Schema.org hints
-      'schema:breadcrumb': 'Home > Pest Control > Ants > Ant Types',
-      'geo:region': 'US',
-      'geo:placename': 'United States',
-    },
+    alternates: { canonical: canonicalUrl },
+    robots: { index: true, follow: true },
   };
 }
-
-type Category = {
-  id: number;
-  name: string;
-  slug: string;
-  count?: number;
-};
-
-type ExtendedPost = {
-  id: number;
-  slug: string;
-  title: {
-    rendered: string;
-  };
-  excerpt?: {
-    rendered: string;
-  };
-  yoast_head_json?: {
-    og_image?: {
-      url: string;
-    }[];
-  };
-};
 
 type SearchPageProps = {
   searchParams: Promise<{ q?: string }>;
@@ -111,96 +41,151 @@ type SearchPageProps = {
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
-  const query = params?.q?.toLowerCase() || "";
+  const query = params?.q?.toLowerCase()?.trim() || '';
 
-  const [postsResponse, categoriesResponse] = await Promise.all([
-    getAllPosts(),
-    getAllCategories(),
+  if (!query) {
+    return (
+      <div className="max-w-6xl mt-20 mx-auto px-4 py-20 text-center">
+        <h1 className="text-4xl font-bold text-gray-800 mb-4">Search Coupons</h1>
+        <p className="text-xl text-gray-600 mb-8">Enter a keyword like hosting or amazon to find deals!</p>
+        <Link href="/" className="bg-orange-500 text-white px-8 py-4 rounded-xl hover:bg-orange-600 transition">
+          Browse All Deals
+        </Link>
+      </div>
+    );
+  }
+
+  const [couponsPromise, categoriesPromise, brandsPromise] = await Promise.allSettled([
+    getCoupons(100),
+    getCategories(),
+    getBrands(),
   ]);
 
-  const allPosts: ExtendedPost[] = Array.isArray(postsResponse)
-    ? postsResponse
-    : postsResponse?.posts || [];
+  const coupons: Coupon[] = couponsPromise.status === 'fulfilled' ? couponsPromise.value : [];
+  const categories: Category[] = categoriesPromise.status === 'fulfilled' ? categoriesPromise.value : [];
+  const brands: Brand[] = brandsPromise.status === 'fulfilled' ? brandsPromise.value : [];
 
-  const allCategories: Category[] = Array.isArray(categoriesResponse)
-    ? categoriesResponse
-    : categoriesResponse?.categories || [];
-
-  // 👇 Fix here: decode HTML and then check includes
-  const filteredPosts = allPosts.filter((post) => {
-    const decodedTitle = decode(post?.title?.rendered || "").toLowerCase();
-    return decodedTitle.includes(query);
+  // Filter coupons
+  const filteredCoupons = coupons.filter((coupon) => {
+    const title = decode(coupon.title.rendered || '').toLowerCase();
+    const excerpt = decode(coupon.excerpt?.rendered || '').toLowerCase();
+    return title.includes(query) || excerpt.includes(query);
   });
 
-  const filteredCategories = allCategories.filter((category) =>
-    category.name.toLowerCase().includes(query)
+  // Filter categories
+  const filteredCategories = categories.filter((cat) =>
+    cat.name.toLowerCase().includes(query) || cat.slug.includes(query)
   );
+
+  // Filter brands
+  const filteredBrands = brands.filter((brand) =>
+    brand.name.toLowerCase().includes(query) || brand.slug.includes(query)
+  );
+
+  const resultsCount = filteredCoupons.length + filteredCategories.length + filteredBrands.length;
 
   return (
     <div className="max-w-6xl mt-20 mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold mb-10">
-        Search results for <span className="text-green-600">{query}</span>
-      </h1>
+      <div className="text-center mb-12">
+        <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent mb-4">
+          {resultsCount} Results for {params.q}
+        </h1>
+        <p className="text-lg text-gray-600">Coupons, brands & categories matching your search.</p>
+      </div>
 
-      {/* Categories first */}
-      <div className="mb-16">
-        <h2 className="text-2xl font-semibold mb-6">Categories</h2>
-        {filteredCategories.length > 0 ? (
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {/* Matching Categories */}
+      {filteredCategories.length > 0 && (
+        <section className="mb-16">
+          <h2 className="text-3xl font-bold mb-8 text-gray-800">Categories ({filteredCategories.length})</h2>
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {filteredCategories.map((cat) => (
               <Link
                 key={cat.id}
                 href={`/category/${cat.slug}`}
-                className="p-4 bg-gray-100 rounded-lg border hover:bg-green-50 hover:text-green-800 transition"
+                className="group p-6 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl border hover:shadow-xl transition-all hover:bg-orange-50"
               >
-                <h4 className="font-medium">{cat.name}</h4>
+                <h4 className="font-semibold text-xl text-gray-800 group-hover:text-orange-600 mb-2">{cat.name}</h4>
               </Link>
             ))}
           </div>
-        ) : (
-          <p className="text-gray-500">No matching categories found.</p>
-        )}
-      </div>
+        </section>
+      )}
 
-      {/* Blog Post Cards in vertical layout */}
-      <div>
-        <h2 className="text-2xl font-semibold mb-6">Blog Posts</h2>
-        {filteredPosts.length > 0 ? (
-          <div className="flex flex-col gap-6">
-            {filteredPosts.map((post) => (
+      {/* Matching Brands */}
+      {filteredBrands.length > 0 && (
+        <section className="mb-16">
+          <h2 className="text-3xl font-bold mb-8 text-gray-800">Brands ({filteredBrands.length})</h2>
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {filteredBrands.map((brand) => (
               <Link
-                href={`/blog/${post.slug}`}
-                key={post.id}
-                className="bg-white border rounded-lg shadow hover:shadow-md transition overflow-hidden flex flex-col sm:flex-row"
+                key={brand.id}
+                href={`/brand/${brand.slug}`}
+                className="group p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border hover:shadow-xl transition-all hover:bg-indigo-50"
               >
-                {post?.yoast_head_json?.og_image?.[0]?.url && (
-                  <Image
-                    src={post.yoast_head_json.og_image[0].url}
-                    alt={post.title.rendered}
-                    width={400}
-                    height={240}
-                    className="w-full h-48 object-contain sm:w-[220px] sm:h-[180px] flex-shrink-0"
-                  />
-                )}
-                <div className="p-4 flex flex-col justify-center flex-1">
-                  <h3
-                    className="text-lg font-bold line-clamp-2"
-                    dangerouslySetInnerHTML={{ __html: post.title.rendered }}
-                  />
-                  {post.excerpt?.rendered && (
-                    <p
-                      className="text-gray-600 text-sm line-clamp-3 mt-2"
-                      dangerouslySetInnerHTML={{ __html: post.excerpt.rendered }}
+                <h4 className="font-semibold text-xl text-gray-800 group-hover:text-indigo-600 mb-2">{brand.name}</h4>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Matching Coupons */}
+      <section>
+        <h2 className="text-3xl font-bold mb-8 text-gray-800">Coupons & Deals ({filteredCoupons.length})</h2>
+        {filteredCoupons.length > 0 ? (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredCoupons.slice(0, 12).map((coupon) => (
+              <Link
+                key={coupon.id}
+                href={`/coupon/${coupon.slug}`}
+                className="group bg-white border border-gray-200 rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all overflow-hidden"
+              >
+                <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200">
+                  {coupon._embedded?.['wp:featuredmedia']?.[0]?.source_url && (
+                    <Image
+                      src={coupon._embedded['wp:featuredmedia'][0].source_url}
+                      alt={coupon.title.rendered}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform"
                     />
                   )}
+                  {coupon.acf?.discount_amount && (
+                    <div className="absolute top-4 right-4 bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
+                      {coupon.acf.discount_amount} OFF
+                    </div>
+                  )}
+                </div>
+                <div className="p-6">
+                  <h3 className="text-xl font-bold line-clamp-2 mb-3" dangerouslySetInnerHTML={{ __html: coupon.title.rendered }} />
+                  {coupon.excerpt?.rendered && (
+                    <p className="text-gray-600 text-sm line-clamp-3 mb-4" dangerouslySetInnerHTML={{ __html: coupon.excerpt.rendered }} />
+                  )}
+                  {coupon.acf?.coupon_code && (
+                    <div className="bg-gray-100 p-3 rounded-lg mb-4">
+                      <strong className="text-sm block mb-1">Code:</strong>
+                      <code className="bg-white px-3 py-1 rounded font-mono text-orange-600 font-semibold">
+                        {coupon.acf.coupon_code}
+                      </code>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">View Deal</span>
+                    <span className="text-orange-600 font-semibold text-lg">→</span>
+                  </div>
                 </div>
               </Link>
             ))}
           </div>
         ) : (
-          <p className="text-gray-500">No matching blog posts found.</p>
+          <div className="text-center py-20 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-2xl p-12">
+            <h3 className="text-2xl font-bold text-gray-700 mb-4">No Coupons Found</h3>
+            <p className="text-gray-600 mb-8">Try  hosting coupon or amazon deals for better results.</p>
+            <Link href="/" className="bg-gradient-to-r from-orange-500 to-yellow-500 text-white px-8 py-3 rounded-xl hover:shadow-lg font-semibold">
+              All Coupons
+            </Link>
+          </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

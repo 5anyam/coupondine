@@ -7,6 +7,9 @@ export interface Coupon {
     content: {
       rendered: string;
     };
+    excerpt?: {  // ✅ Added excerpt (WP standard)
+      rendered: string;
+    };
     acf: {
       coupon_code?: string;
       discount_amount?: string;
