@@ -2,278 +2,179 @@ import { Coupon, Brand, Category } from '@/types';
 
 const WP_API_URL = 'https://cms.coupondine.com/wp-json/wp/v2';
 
-export async function getCoupons(limit = 100): Promise<Coupon[]> {
+// ✅ Centralized fetch function with error handling
+async function wpFetch(endpoint: string, revalidate = 3600) {
   try {
-    const url = `${WP_API_URL}/coupon?_embed&per_page=${limit}`;
-    console.log('Fetching coupons from:', url);
+    const url = `${WP_API_URL}${endpoint}`;
+    console.log('🔍 Fetching:', url);
     
     const res = await fetch(url, {
-      next: { revalidate: 3600 },
-      headers: {
-        'Content-Type': 'application/json',
-      }
+      next: { revalidate },
+      headers: { 'Content-Type': 'application/json' },
     });
     
     if (!res.ok) {
-      console.error('❌ API Error:', res.status, res.statusText);
-      const errorText = await res.text();
-      console.error('Error Body:', errorText);
-      throw new Error(`Failed to fetch coupons: ${res.status} - ${res.statusText}`);
-    }
-    
-    const data = await res.json();
-    console.log('✅ Fetched coupons:', data.length);
-    return data;
-  } catch (error) {
-    console.error('❌ Fetch Error:', error);
-    throw error;
-  }
-}
-
-export async function getCouponBySlug(slug: string): Promise<Coupon | null> {
-  try {
-    const url = `${WP_API_URL}/coupon?slug=${slug}&_embed`;
-    console.log('Fetching coupon by slug:', url);
-    
-    const res = await fetch(url, {
-      next: { revalidate: 3600 },
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
-    
-    if (!res.ok) {
-      console.error('❌ Coupon by slug error:', res.status, res.statusText);
+      console.error(`❌ ${endpoint} failed:`, res.status);
       return null;
     }
     
-    const coupons: Coupon[] = await res.json();
-    console.log('✅ Found coupon:', coupons.length > 0 ? coupons[0].title.rendered : 'Not found');
-    return coupons[0] || null;
+    const data = await res.json();
+    console.log(`✅ ${endpoint} success:`, data.length || 'single item');
+    return data;
   } catch (error) {
-    console.error('❌ Error fetching coupon by slug:', error);
+    console.error(`❌ Error fetching ${endpoint}:`, error);
     return null;
   }
 }
 
-// Add this export after getBrandsByCategory function
-export async function getCouponsByCategory(categorySlug: string): Promise<Coupon[]> {
-  try {
-    console.log('Fetching coupons for category:', categorySlug);
-    
-    // First get category ID
-    const catRes = await fetch(`${WP_API_URL}/coupon_category?slug=${categorySlug}`, {
-      headers: { 'Content-Type': 'application/json' }
-    });
-    
-    if (!catRes.ok) {
-      console.error('❌ Category fetch error:', catRes.status);
-      return [];
-    }
-    
-    const categories: Category[] = await catRes.json();
-    if (!categories[0]) {
-      console.warn('⚠️ Category not found:', categorySlug);
-      return [];
-    }
-    
-    const categoryId = categories[0].id;
-    console.log('✅ Found category:', categories[0].name, 'ID:', categoryId);
-    
-    // Get coupons in this category
-    const couponsRes = await fetch(`${WP_API_URL}/coupon?coupon_category=${categoryId}&_embed&per_page=100`, {
-      next: { revalidate: 3600 },
-      headers: { 'Content-Type': 'application/json' }
-    });
-    
-    if (!couponsRes.ok) {
-      console.error('❌ Coupons fetch error:', couponsRes.status);
-      return [];
-    }
-    
-    const coupons = await couponsRes.json();
-    console.log('✅ Found coupons in category:', coupons.length);
-    return coupons;
-  } catch (error) {
-    console.error('❌ Error fetching coupons by category:', error);
-    return [];
-  }
+// ==================== COUPONS ====================
+
+export async function getCoupons(limit = 100): Promise<Coupon[]> {
+  const data = await wpFetch(`/coupon?_embed&per_page=${limit}`);
+  return data || [];
 }
 
+export async function getCouponBySlug(slug: string): Promise<Coupon | null> {
+  const data = await wpFetch(`/coupon?slug=${slug}&_embed`);
+  return data?.[0] || null;
+}
 
 export async function getCouponsByBrand(brandSlug: string): Promise<Coupon[]> {
-  try {
-    console.log('Fetching brand:', brandSlug);
-    
-    // First, get brand by slug
-    const brandRes = await fetch(`${WP_API_URL}/brand?slug=${brandSlug}`, {
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
-    
-    if (!brandRes.ok) {
-      console.error('❌ Brand fetch error:', brandRes.status);
-      return [];
-    }
-    
-    const brands: Brand[] = await brandRes.json();
-    
-    if (!brands[0]) {
-      console.warn('⚠️ Brand not found:', brandSlug);
-      return [];
-    }
-    
-    console.log('✅ Found brand:', brands[0].name, 'ID:', brands[0].id);
-    
-    // Then get coupons for that brand
-    const res = await fetch(`${WP_API_URL}/coupon?brand=${brands[0].id}&_embed`, {
-      next: { revalidate: 3600 },
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
-    
-    if (!res.ok) {
-      console.error('❌ Coupons by brand error:', res.status);
-      return [];
-    }
-    
-    const coupons = await res.json();
-    console.log('✅ Found coupons for brand:', coupons.length);
-    return coupons;
-  } catch (error) {
-    console.error('❌ Error fetching coupons by brand:', error);
-    return [];
-  }
+  // Step 1: Get brand ID
+  const brands = await wpFetch(`/brand?slug=${brandSlug}`);
+  if (!brands?.[0]) return [];
+  
+  const brandId = brands[0].id;
+  console.log(`✅ Brand "${brands[0].name}" ID: ${brandId}`);
+  
+  // Step 2: Get coupons by brand ID
+  const coupons = await wpFetch(`/coupon?brand=${brandId}&_embed&per_page=100`);
+  return coupons || [];
 }
+
+export async function getCouponsByCategory(categorySlug: string): Promise<Coupon[]> {
+  // Step 1: Get category ID
+  const categories = await wpFetch(`/coupon_category?slug=${categorySlug}`);
+  if (!categories?.[0]) return [];
+  
+  const categoryId = categories[0].id;
+  console.log(`✅ Category "${categories[0].name}" ID: ${categoryId}`);
+  
+  // Step 2: Get coupons by category ID
+  const coupons = await wpFetch(`/coupon?coupon_category=${categoryId}&_embed&per_page=100`);
+  return coupons || [];
+}
+
+// ==================== BRANDS ====================
 
 export async function getBrands(): Promise<Brand[]> {
-  try {
-    const url = `${WP_API_URL}/brand?per_page=100`;
-    console.log('Fetching brands from:', url);
-    
-    const res = await fetch(url, {
-      next: { revalidate: 3600 },
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
-    
-    if (!res.ok) {
-      console.error('❌ Brands API Error:', res.status, res.statusText);
-      const errorText = await res.text();
-      console.error('Error Body:', errorText);
-      throw new Error(`Failed to fetch brands: ${res.status}`);
-    }
-    
-    const data = await res.json();
-    console.log('✅ Fetched brands:', data.length);
-    return data;
-  } catch (error) {
-    console.error('❌ Brands Fetch Error:', error);
-    return []; // Return empty array instead of throwing
-  }
+  const data = await wpFetch('/brand?per_page=100');
+  return data || [];
 }
 
-// Additional helper function to test API connection
+export async function getBrandBySlug(slug: string): Promise<Brand | null> {
+  const data = await wpFetch(`/brand?slug=${slug}`);
+  return data?.[0] || null;
+}
+
+export async function getBrandsByCategory(categorySlug: string): Promise<Brand[]> {
+  // Get all coupons in category first
+  const coupons = await getCouponsByCategory(categorySlug);
+  
+  // Extract unique brands from embedded data
+  const brandMap = new Map<number, Brand>();
+  
+  coupons.forEach((coupon: Coupon) => {
+    // TypeScript safe access for embedded terms
+    const embeddedTerms = coupon._embedded?.['wp:term'];
+    
+    // Check if terms exist and take the FIRST array (which is usually Taxonomy terms like Brands/Categories)
+    // Note: WordPress REST API puts tags/categories/custom_taxonomies in arrays inside 'wp:term'
+    if (Array.isArray(embeddedTerms)) {
+      // Loop through all term arrays (Brand groups, Category groups etc)
+      embeddedTerms.forEach((termGroup) => {
+        // Now loop through individual terms in that group
+        termGroup.forEach((term) => {
+           // Basic check to see if it looks like a Brand (has 'brand' in taxonomy or slug if available)
+           // Or simply collect everything and rely on the frontend to filter
+           // Since we can't easily distinguish types here without 'taxonomy' field,
+           // we assume terms with ACF 'brand_logo' are brands, or filter by logic later.
+           
+           // Safer Approach: Just verify it has an ID and Name
+           if (typeof term === 'object' && term !== null && 'id' in term && 'name' in term) {
+             // Cast to Brand to satisfy TS
+             const potentialBrand = term as Brand;
+             
+             // Check if already added
+             if (!brandMap.has(potentialBrand.id)) {
+               brandMap.set(potentialBrand.id, potentialBrand);
+             }
+           }
+        });
+      });
+    }
+  });
+  
+  const brands = Array.from(brandMap.values());
+  console.log(`✅ Found ${brands.length} unique brands/terms in category`);
+  return brands;
+}
+
+// ==================== CATEGORIES ====================
+
+export async function getCategories(): Promise<Category[]> {
+  const data = await wpFetch('/coupon_category?per_page=100');
+  return data || [];
+}
+
+export async function getCategoryBySlug(slug: string): Promise<Category | null> {
+  const data = await wpFetch(`/coupon_category?slug=${slug}`);
+  return data?.[0] || null;
+}
+
+// ==================== STATS (for Homepage) ====================
+
+export async function getStats() {
+  const [coupons, brands, categories] = await Promise.all([
+    getCoupons(1), // Just need count
+    getBrands(),
+    getCategories()
+  ]);
+  
+  return {
+    totalCoupons: coupons.length || 0,
+    totalBrands: brands.length || 0,
+    totalCategories: categories.length || 0,
+  };
+}
+
+// ==================== POPULAR BRANDS (Top by coupon count) ====================
+
+export async function getPopularBrands(limit = 12): Promise<Brand[]> {
+  const brands = await getBrands();
+  
+  // Ab ye error nahi dega
+  return brands
+    .sort((a, b) => (b.count || 0) - (a.count || 0))
+    .slice(0, limit);
+}
+
+// ==================== SEARCH ====================
+
+export async function searchCoupons(query: string): Promise<Coupon[]> {
+  const data = await wpFetch(`/coupon?search=${encodeURIComponent(query)}&_embed&per_page=50`);
+  return data || [];
+}
+
+// ==================== HEALTH CHECK ====================
+
 export async function testWPConnection(): Promise<boolean> {
   try {
     const res = await fetch(`${WP_API_URL}`, {
-      headers: {
-        'Content-Type': 'application/json',
-      }
+      headers: { 'Content-Type': 'application/json' },
     });
     return res.ok;
-  } catch (error) {
-    console.error('❌ WordPress connection test failed:', error);
+  } catch {
     return false;
-  }
-}
-
-export async function getCategories(): Promise<Category[]> {
-  try {
-    const url = `${WP_API_URL}/coupon_category?per_page=100`; // ✅ Exact name
-    console.log('Fetching categories from:', url);
-    
-    const res = await fetch(url, {
-      next: { revalidate: 3600 },
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
-    
-    if (!res.ok) {
-      console.error('❌ Categories API Error:', res.status, res.statusText);
-      return [];
-    }
-    
-    const data = await res.json();
-    console.log('✅ Fetched categories:', data.length);
-    return data;
-  } catch (error) {
-    console.error('❌ Categories Fetch Error:', error);
-    return [];
-  }
-}
-
-
-// Get brands by category
-export async function getBrandsByCategory(categorySlug: string): Promise<Brand[]> {
-  try {
-    console.log('Fetching brands for category:', categorySlug);
-    
-    // First get category ID
-    const catRes = await fetch(`${WP_API_URL}/coupon_category?slug=${categorySlug}`, {
-      headers: { 'Content-Type': 'application/json' }
-    });
-    
-    if (!catRes.ok) {
-      console.error('❌ Category fetch error:', catRes.status);
-      return [];
-    }
-    
-    const categories = await catRes.json();
-    if (!categories[0]) {
-      console.warn('⚠️ Category not found:', categorySlug);
-      return [];
-    }
-    
-    const categoryId = categories[0].id;
-    console.log('✅ Found category:', categories[0].name, 'ID:', categoryId);
-    
-    // Get all coupons in this category
-    const couponsRes = await fetch(`${WP_API_URL}/coupon?coupon_category=${categoryId}&_embed&per_page=100`, {
-      next: { revalidate: 3600 },
-      headers: { 'Content-Type': 'application/json' }
-    });
-    
-    if (!couponsRes.ok) {
-      console.error('❌ Coupons fetch error:', couponsRes.status);
-      return [];
-    }
-    
-    const coupons = await couponsRes.json();
-    console.log('✅ Found coupons in category:', coupons.length);
-    
-    // Extract unique brands from coupons
-    const brandMap = new Map<number, Brand>();
-    
-    coupons.forEach((coupon: Coupon) => {
-      const brandTerms = coupon._embedded?.['wp:term']?.[0] || [];
-      brandTerms.forEach((brand: Brand) => {
-        if (!brandMap.has(brand.id)) {
-          brandMap.set(brand.id, brand);
-        }
-      });
-    });
-    
-    const brands = Array.from(brandMap.values());
-    console.log('✅ Unique brands found:', brands.length);
-    
-    return brands;
-  } catch (error) {
-    console.error('❌ Error fetching brands by category:', error);
-    return [];
   }
 }
