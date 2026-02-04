@@ -3,7 +3,7 @@ import { Coupon, Brand, Category } from '@/types';
 const WP_API_URL = 'https://cms.coupondine.com/wp-json/wp/v2';
 
 // ✅ Centralized fetch function with error handling
-async function wpFetch(endpoint: string, revalidate = 3600) {
+async function wpFetch(endpoint: string, revalidate = 60) {
   try {
     const url = `${WP_API_URL}${endpoint}`;
     console.log('🔍 Fetching:', url);
